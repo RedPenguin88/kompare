@@ -25,7 +25,7 @@ func CompareRoutes(clientsetToSource, clientsetToTarget *routeclient.Clientset, 
 	}
 	var diffCriteria []string
 	if TheArgs.FiltersForObject == "" {
-		diffCriteria = []string{"Spec.Template.Spec", "Name"}
+		diffCriteria = []string{"Spec.Host", "Name"}
 	} else {
 		diffCriteria = tools.ParseCommaSeparateList(TheArgs.FiltersForObject)
 	}
