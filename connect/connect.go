@@ -6,6 +6,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	routeclient "github.com/openshift/client-go/route/clientset/versioned"
 )
 
 // CreateConfig creates a Kubernetes configuration based on the provided config file path.
@@ -101,4 +102,17 @@ func ConnectToSource(strSourceClusterContext string, configFile *string) (*kuber
 		return nil, fmt.Errorf("Failed to get the *kubernetes.Clientset: %w", err)
 	}
 	return clientsetToSource, nil
+}
+
+func GetRouteClientSet(context string, configFile *string) (*routeclient.Clientset, error) {
+	config, err := BuildConfigWithContextFromFlags(context, *configFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the *rest.Config: %w", err)
+	}
+
+	clientset, err := routeclient.NewForConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the *versioned.Clientset: %w", err)
+	}
+	return clientset, nil
 }

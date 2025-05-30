@@ -193,6 +193,7 @@ func ValidateKubernetesObjects(objects []string) ([]string, []string) {
 		"clusterrolebinding": {"clusterrolebinding", "clusterrolebindings"},
 		"crd":                {"crd", "crds", "customresourcedefinition", "customresourcedefinitions"},
 		"networkpolicy":      {"networkpolicy", "networkpolicies"},
+		"route":              {"route", "routes"},
 		// Add more valid objects and their aliases as needed
 	}
 

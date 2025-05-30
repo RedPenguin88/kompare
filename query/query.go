@@ -9,6 +9,8 @@ import (
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	batchv1 "k8s.io/api/batch/v1"
 
+	routev1 "github.com/openshift/api/route/v1"
+	routeclient "github.com/openshift/client-go/route/clientset/versioned"
 	networkingv1 "k8s.io/api/networking/v1"
 	// traefikv1alpha1 "github.com/traefik/traefik/v3/pkg/provider/kubernetes/crd/traefikio/v1alpha1"
 	apiextensionv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -216,4 +218,12 @@ func ListNetworkPolicies(clientset *kubernetes.Clientset, nameSpace string) (*ne
 		return nil, fmt.Errorf("failed to query the Network Policy List: %w", err)
 	}
 	return listNetworkPolicy, nil
+}
+
+func ListRoutes(clientset *routeclient.Clientset, nameSpace string) (*routev1.RouteList, error) {
+	listRoute, err := clientset.RouteV1().Routes(nameSpace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query the Route List: %w", err)
+	}
+	return listRoute, nil
 }

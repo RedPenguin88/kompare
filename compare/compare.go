@@ -17,6 +17,7 @@ import (
 	Corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	RbacV1 "k8s.io/api/rbac/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	apiextensionv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -85,6 +86,10 @@ var typeAssertions = map[string]TypeAssertionFunc{
 	},
 	"*networkingv1.NetworkPolicyList": func(obj interface{}) (bool, interface{}) {
 		val, ok := obj.(*networkingv1.NetworkPolicyList)
+		return ok, val
+	},
+	"*routev1.RouteList": func(obj interface{}) (bool, interface{}) {
+		val, ok := obj.(*routev1.RouteList)
 		return ok, val
 	},
 }

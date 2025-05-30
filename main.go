@@ -187,7 +187,7 @@ func iterateGoglabObjects(clientsetToSource, clientsetToTarget *kubernetes.Clien
 func compareAllResourcesInNamespace(clientsetToSource, clientsetToTarget *kubernetes.Clientset, namespace string, TheArgs cli.ArgumentsReceivedValidated) {
 	fmt.Printf("Looping on Namespace: %s\n", namespace)
 	// Compare all resources for the namespace
-	resources := []string{"deployment", "ingress", "service", "serviceaccount", "configmap", "secret", "role", "rolebinding", "hpa", "cronjob", "networkpolicy"}
+	resources := []string{"deployment", "ingress", "service", "serviceaccount", "configmap", "secret", "role", "rolebinding", "hpa", "cronjob", "networkpolicy", "route"}
 
 	// Create a title case converter for English
 	titleCase := cases.Title(language.English)
@@ -212,7 +212,7 @@ func compareResourcesByLists(clientsetToSource, clientsetToTarget *kubernetes.Cl
 	titleCase := cases.Title(language.English)
 
 	// Define all resources
-	resources := []string{"deployment", "ingress", "service", "serviceaccout", "configmap", "secret", "role", "rolebinding", "networkpolicy", "hpa", "cronjob"}
+	resources := []string{"deployment", "ingress", "service", "serviceaccout", "configmap", "secret", "role", "rolebinding", "networkpolicy", "hpa", "cronjob", "route"}
 
 	// Compare resources based on include list
 	for _, resource := range includeResources {
@@ -305,6 +305,22 @@ func compareResource(clientsetToSource, clientsetToTarget *kubernetes.Clientset,
 			err = fmt.Errorf("error comparing Network Policies: %v", err)
 			panic(err)
 		}
+	case "route":
+		clientToSource, err := connect.GetRouteClientSet(TheArgs.SourceClusterContext, &TheArgs.KubeconfigFile)
+		if err != nil {
+			err = fmt.Errorf("error getting source context route client sets: %v", err)
+			panic(err)
+		}
+		clientToTarget, err := connect.GetRouteClientSet(TheArgs.TargetClusterContext, &TheArgs.KubeconfigFile)
+		if err != nil {
+			err = fmt.Errorf("error getting target context route client sets: %v", err)
+			panic(err)
+		}
+		_, err = compare.CompareRoutes(clientToSource, clientToTarget, namespace, TheArgs)
+		if err != nil {
+			err = fmt.Errorf("error comparing Routes: %v", err)
+			panic(err)
+		}
 	}
 }
 
@@ -317,7 +333,7 @@ func iterateNamespaces(sourceNameSpacesList *v1.NamespaceList, clientsetToSource
 		}
 	} else {
 		// Compare resources based on include or exclude lists
-		resources := []string{"deployment", "ingress", "service", "serviceaccount", "configmap", "secret", "role", "rolebinding", "hpa", "cronjob", "networkpolicy"}
+		resources := []string{"deployment", "ingress", "service", "serviceaccount", "configmap", "secret", "role", "rolebinding", "hpa", "cronjob", "networkpolicy", "route"}
 		if tools.AreAnyInLists(TheArgs.Include, resources) || tools.AreAnyInLists(TheArgs.Exclude, resources) {
 			for _, ns := range sourceNameSpacesList.Items {
 				compareResourcesByLists(clientsetToSource, clientsetToTarget, ns.Name, TheArgs)
