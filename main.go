@@ -27,6 +27,10 @@ func main() {
 		defer tools.LogOutput(args.FileOutput)()
 	}
 
+	if args.CSVOutput != "" {
+		tools.CSVOutput(args.CSVOutput)
+	}
+
 	// Connect to source cluster
 	clientsetToSource, err := connect.ConnectToSource(args.SourceClusterContext, &args.KubeconfigFile)
 	if err != nil {

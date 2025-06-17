@@ -1,8 +1,10 @@
 package tools
 
 import (
+	"encoding/csv"
 	"fmt"
 	"io"
+	"kompare/DAO"
 	"log"
 	"os"
 	"path/filepath"
@@ -67,6 +69,30 @@ func IsValidPath(path string) (isValid bool, absPath string, err error) {
 	}()
 
 	return true, absPath, nil
+}
+
+func ExportCSV(fileName string, differences []DAO.DiffWithName, writer *csv.Writer) {
+	for _, diff := range differences {
+		for _, d := range diff.Diff {
+			key, value, result := startsWithMapPattern(d)
+			if result {
+				leftSide, delimiter, rightSide := ExtractSubstrings(value)
+				writer.Write([]string{diff.Name, diff.Name, diff.Namespace, diff.PropertyName, fmt.Sprintf("%s: %s %s %s", key, leftSide, delimiter, rightSide)})
+			} else {
+				writer.Write([]string{diff.Name, diff.Name, diff.Namespace, diff.PropertyName, d})
+			}
+		}
+	}
+}
+
+func CSVOutput(csvfile string) {
+	f, _ := os.OpenFile(csvfile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	defer f.Close()
+
+	w := csv.NewWriter(f)
+	defer w.Flush()
+
+	w.Write([]string{"Cluster 1 Object Name", "Cluster 2 Object Name", "Namespace", "PropertyName", "DIFF"})
 }
 
 func LogOutput(logfile string) func() {

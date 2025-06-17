@@ -1,7 +1,9 @@
 package compare
 
 import (
+	"encoding/csv"
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 
@@ -11,13 +13,13 @@ import (
 	"kompare/cli"
 	"kompare/tools"
 
+	routev1 "github.com/openshift/api/route/v1"
 	v1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	Corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	RbacV1 "k8s.io/api/rbac/v1"
-	routev1 "github.com/openshift/api/route/v1"
 	apiextensionv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -195,7 +197,7 @@ func IterateGenericSimpleDiff(sourceInterface, targetInterface interface{}) ([]s
 // and appends the item's name to the diffNameList.
 // The function returns a slice containing the names of the items that are present in the first interface
 // but not in the second interface.
-func CompareByName(firstInterface, secondInterface interface{}, message_heading string) []string {
+func CompareByName(firstInterface, secondInterface interface{}, message_heading string, writer *csv.Writer) []string {
 	var diffNameList []string
 
 	// Extract the "Items" field from the first and second interfaces
@@ -210,8 +212,17 @@ func CompareByName(firstInterface, secondInterface interface{}, message_heading 
 
 			// Check if the item is not present in the second interface
 			if !containsItem(item, secondItems) {
-				fmt.Println(generateMessage(message_heading, tools.ConvertTypeStringToHumanReadable(item), getName(item)))
+				message := generateMessage(message_heading, tools.ConvertTypeStringToHumanReadable(item), getName(item))
+				fmt.Println(message)
 				diffNameList = append(diffNameList, getName(item))
+				if writer != nil {
+					namespace, _ := getNestedFieldValue(reflect.ValueOf(item), []string{"Namespace"})
+					if message[2] == 'F' {
+						writer.Write([]string{getName(item), "", namespace.String(), "", message[2:len(message)-1]})
+					} else {
+						writer.Write([]string{"", getName(item), namespace.String(), "", message[2:len(message)-1]})
+					}
+				}
 			}
 		}
 	}
@@ -346,7 +357,7 @@ func DeepCompare(sourceInterface, targetInterface interface{}, DiffCriteria []st
 // It also performs a deep comparison of resources based on the specified diffCriteria using the DeepCompare function.
 // The function returns a slice of DiffWithName containing the differences between the source and target resources,
 // along with any error encountered during the comparison.
-func ShowResourceComparison(sourceResource, targetResource interface{}, diffCriteria []string, args cli.ArgumentsReceivedValidated) ([]DAO.DiffWithName, error) {
+func ShowResourceComparison(sourceResource, targetResource interface{}, diffCriteria []string, args cli.ArgumentsReceivedValidated, writer *csv.Writer) ([]DAO.DiffWithName, error) {
 	var TheDiff []DAO.DiffWithName
 	lensourceResource := GenericCountListElements(sourceResource)
 	lentargetResource := GenericCountListElements(targetResource)
@@ -354,7 +365,7 @@ func ShowResourceComparison(sourceResource, targetResource interface{}, diffCrit
 
 	messageheading := "* These two cluster do not have the same number of " + resourceType + ", please check it manually! *"
 	lenMessageheading := len(messageheading)
-	if args.VerboseDiffs != 0 {
+	if args.VerboseDiffs != 0 || args.CSVOutput != "" {
 		if lentargetResource != lensourceResource {
 
 			fmt.Println(strings.Repeat("*", lenMessageheading))
@@ -364,14 +375,14 @@ func ShowResourceComparison(sourceResource, targetResource interface{}, diffCrit
 		}
 		fmt.Println(strings.Repeat("*", lenMessageheading))
 		sourceMessageTemplate := "- First cluster has %s: %s, but it's not in the second cluster\n"
-		resultStringsSvT := CompareByName(sourceResource, targetResource, sourceMessageTemplate)
+		resultStringsSvT := CompareByName(sourceResource, targetResource, sourceMessageTemplate, writer)
 		if len(resultStringsSvT) > 0 {
 			fmt.Println(strings.Repeat("*", lenMessageheading))
 		} else {
 			fmt.Println("Done compering source cluster versus target cluster's ", resourceType)
 		}
 		targetmessageTemplate := "- Second cluster has %s: %s, but it's not in the first cluster\n"
-		resultStringsTvS := CompareByName(targetResource, sourceResource, targetmessageTemplate)
+		resultStringsTvS := CompareByName(targetResource, sourceResource, targetmessageTemplate, writer)
 		if len(resultStringsTvS) > 0 {
 			fmt.Println(strings.Repeat("*", lenMessageheading))
 		} else {
@@ -397,18 +408,33 @@ func ShowResourceComparison(sourceResource, targetResource interface{}, diffCrit
 // The function returns a slice of DiffWithName containing the differences between the source and target namespaces,
 // along with any error encountered during the comparison.
 func CompareVerboseVSNonVerbose(sourceNameSpacesList, targetNameSpacesList interface{}, diffCriteria []string, args cli.ArgumentsReceivedValidated) ([]DAO.DiffWithName, error) {
+	if args.CSVOutput != "" {
+		// Create CSV Output
+		file, err := os.OpenFile(args.CSVOutput, os.O_APPEND|os.O_RDWR, 0644)
+		if err != nil {
+			panic(err.Error())
+		}
+		defer file.Close()
+
+		writer := csv.NewWriter(file)
+		defer writer.Flush()
+
+		TheDiff, err := ShowResourceComparison(sourceNameSpacesList, targetNameSpacesList, diffCriteria, args, writer)
+		tools.ExportCSV(args.CSVOutput, TheDiff, writer)
+		return TheDiff, err
+	}
 	if args.VerboseDiffs != 0 {
 		if args.VerboseDiffs > 1 {
-			TheDiff, err := ShowResourceComparison(sourceNameSpacesList, targetNameSpacesList, diffCriteria, args)
+			TheDiff, err := ShowResourceComparison(sourceNameSpacesList, targetNameSpacesList, diffCriteria, args, nil)
 			fmt.Println(tools.FormatDiffHumanReadable(TheDiff))
 			return TheDiff, err
 		} else if args.VerboseDiffs == 1 {
-			return ShowResourceComparison(sourceNameSpacesList, targetNameSpacesList, diffCriteria, args)
+			return ShowResourceComparison(sourceNameSpacesList, targetNameSpacesList, diffCriteria, args, nil)
 		}
 
 	}
 	// sumary goes here.
-	return ShowResourceComparison(sourceNameSpacesList, targetNameSpacesList, diffCriteria, args)
+	return ShowResourceComparison(sourceNameSpacesList, targetNameSpacesList, diffCriteria, args, nil)
 }
 
 // GenericCompareResources compares resources between two Kubernetes clusters based on specified criteria.

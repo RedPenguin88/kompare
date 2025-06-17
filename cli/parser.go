@@ -13,6 +13,7 @@ type ArgumentsReceived struct {
 	KubeconfigFile, SourceClusterContext, TargetClusterContext, NamespaceName, FiltersForObject, Include, Exclude *string
 	VerboseDiffs                                                                                                  *int
 	FileOutput                                                                                                    *string
+	CSVOutput                                                                                                     *string
 	Err                                                                                                           error
 }
 type ArgumentsReceivedValidated struct {
@@ -20,6 +21,7 @@ type ArgumentsReceivedValidated struct {
 	Include, Exclude                                                                            []string
 	VerboseDiffs                                                                                int
 	FileOutput                                                                                  string
+	CSVOutput                                                                                   string
 	Err                                                                                         error
 }
 
@@ -34,6 +36,7 @@ type ArgumentsReceivedValidated struct {
 //   - 'e' or 'exclude' flag for specifying a list of Kubernetes objects to exclude (optional).
 //   - 'n' or 'namespace' flag for specifying the namespace to be copied (optional, defaults to 'default').
 //   - 'f' or 'filter' flag for specifying what parts of the object to compare (optional).
+//   - 'o' or 'tabulate' flag for specifying the path to the csv output file (optional)
 //
 // If an error occurs during parsing, it prints the error and usage information.
 // The function returns a struct containing validated arguments.
@@ -49,6 +52,7 @@ func PaserReader() ArgumentsReceivedValidated {
 	namespaceName := parser.String("n", "namespace", &argparse.Options{Help: "Namespace that needs to be copied. defaults to 'default' namespace. The option also accepts wilcard matching of namespace. E.G.: '*-pci' would match any namespace that ends with -pci. Notice that the '' might be required in some consoles like iterm"})
 	filtersForObject := parser.String("f", "filter", &argparse.Options{Help: "Filter what parts of the object I want to compare. must be used together with -i option to apply to that type of objects"})
 	fileOutput := parser.String("l", "file", &argparse.Options{Required: false, Help: "Save the output to a file. If not provided, the output will be printed to the console."})
+	csvOutput := parser.String("o", "tabulate", &argparse.Options{Required: false, Help: "Save the output to a csv file. If not provided, the output will be printed to the console."})
 	err := parser.Parse(os.Args)
 	if err != nil {
 		// In case of error print error and print usage
@@ -64,6 +68,7 @@ func PaserReader() ArgumentsReceivedValidated {
 			Exclude:              []string{""},
 			VerboseDiffs:         *verboseDiffs,
 			FileOutput:           "",
+			CSVOutput:            "",
 			Err:                  err}
 	}
 	TheArgs := ArgumentsReceived{
@@ -76,6 +81,7 @@ func PaserReader() ArgumentsReceivedValidated {
 		FiltersForObject:     filtersForObject,
 		VerboseDiffs:         verboseDiffs,
 		FileOutput:           fileOutput,
+		CSVOutput:            csvOutput,
 		Err:                  err}
 	ArgumentsReceivedValidated := ValidateParametersFromParserArgs(TheArgs)
 	return ArgumentsReceivedValidated
@@ -139,9 +145,9 @@ func ValidateParametersFromParserArgs(TheArgs ArgumentsReceived) ArgumentsReceiv
 		fmt.Println("The program will try to execute anyway, but the output might not be what you expect.")
 		fmt.Println("The -f is to be used with one and only one -i include object type at the time.")
 	}
-	file := *TheArgs.FileOutput
-	if file != "" {
-		valid, filePath, err := tools.IsValidPath(file)
+	fileOutputPath := *TheArgs.FileOutput
+	if fileOutputPath != "" {
+		valid, filePath, err := tools.IsValidPath(fileOutputPath)
 		if err == nil {
 			if valid {
 				fmt.Printf("The output will be saved to the file: %s\n", filePath)
@@ -149,17 +155,19 @@ func ValidateParametersFromParserArgs(TheArgs ArgumentsReceived) ArgumentsReceiv
 		} else {
 			fmt.Println(err)
 		}
-		return ArgumentsReceivedValidated{
-			KubeconfigFile:       configFile,
-			SourceClusterContext: strSourceClusterContext,
-			TargetClusterContext: strTargetClusterContext,
-			NamespaceName:        strNamespaceName,
-			FiltersForObject:     *TheArgs.FiltersForObject,
-			Include:              includeStr,
-			Exclude:              excludeStr,
-			VerboseDiffs:         *TheArgs.VerboseDiffs,
-			FileOutput:           filePath,
-			Err:                  nil}
+		fileOutputPath = filePath
+	}
+	csvOutputPath := *TheArgs.CSVOutput
+	if csvOutputPath != "" {
+		valid, filePath, err := tools.IsValidPath(csvOutputPath)
+		if err == nil {
+			if valid {
+				fmt.Printf("The csv output will be saved to the file: %s\n", filePath)
+			}
+		} else {
+			fmt.Println(err)
+		}
+		csvOutputPath = filePath
 	}
 	return ArgumentsReceivedValidated{
 		KubeconfigFile:       configFile,
@@ -170,7 +178,8 @@ func ValidateParametersFromParserArgs(TheArgs ArgumentsReceived) ArgumentsReceiv
 		Include:              includeStr,
 		Exclude:              excludeStr,
 		VerboseDiffs:         *TheArgs.VerboseDiffs,
-		FileOutput:           "",
+		FileOutput:           fileOutputPath,
+		CSVOutput:            csvOutputPath,
 		Err:                  nil}
 }
 

@@ -85,13 +85,13 @@ func startsWithMapPattern(input string) (string, string, bool) {
 	// Check if the input string starts with the prefix
 	if strings.Contains(input, prefix) {
 		// Find the index of the closing bracket "]"
-		closingBracketIndex := strings.Index(input, ":")
+		closingBracketIndex := strings.Index(input, "]")
 
 		// Check if the closing bracket is followed by a colon ":"
 		if closingBracketIndex != -1 && closingBracketIndex < len(input)-1 && input[closingBracketIndex+1] == ':' {
 			// Extract the substring between the brackets and after the colon
 			key := strings.TrimSpace(input[len(prefix):closingBracketIndex])
-			value := strings.TrimSpace(input[closingBracketIndex+1:]) // Trimming spaces
+			value := strings.TrimSpace(input[closingBracketIndex+2:]) // Trimming spaces
 			return key, value, true
 		}
 	}
